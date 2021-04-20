@@ -1,0 +1,17 @@
+---
+title: "Paper"
+author: "Colin Wick"
+date: "4/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message = FALSE,warning=FALSE)
+library(tidyverse)
+```
+
+OUTLINE 
+
+The theoretical basis of the model is that there are characteristics of people's demographic or exogenous experience which influence their relative radicalism in the political system. Political science and sociological literature explores material and social condition as a generator of political opinion.
+
+As highlighted in the literature from Piketty (1995) which shows general disposition is stable even over 
