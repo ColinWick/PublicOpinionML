@@ -12,6 +12,53 @@ library(tidyverse)
 
 OUTLINE 
 
+LIMITATIONS OF THE DATA
+
+The ANES is a gold-standard representative sample of the American electorate, but it faces limitations for the scope of this study. Namely, measuuring actual *radical* sentiment must be inferred based on self-reported actions and attitudes, meaning some voters will be included or excluded from the classification based on the scope of questions which may not capture their underlying attitude. 
+
+
+
+1. Motivation (text)
+
+The ANES contains about 1800 variables, so a pruning and variable classification process has to take place before any analysis can even be done. Ultimately, there is a degree to which variable selection is *arbitrary*. Working with public opinion data requires a degree of judgement with respect to variable selection and engineering. The ANES contains 1800 variables which overlap on some matters and contain redundancies. Such a large pool of variables makes variable construction a combinatorically unfeasable.
+
+The general setup of the model will operate using a few rough cuts for simplicity and analytic viability. To define terms:
+1. Voter demographics (DEMO) - components of a voter's identity which are "fixed" in the sense that they are reasonably exogenous to political perspective. Attitudes might plausibly flow from these characteristics, but politics would not reasonably influence these attributes.
+2. Voter inputs (INPUT) - somewhat exogenous events or characteristics which may influence a voter's attitude, like being contacted by a campaign, job status (union, laid off, industry, etc), urban/rural residence, or any sort of nudges which a voter may encounter.
+3. Politicization (POL) - Characteristics which are endogenous to a degree. Events known to have a radicalizing effect, political knowledge, other variables of interest along similar lines.
+
+Variables explicitly addressing attitudes for the 2016 candidates and positions were omitted. Instead, this study focused on questions *around* public opinion at the time and voter characteristics. 
+
+Radicalization itself is a challenging measurement, since pollsters cannot simply ask "are you radical?" to a respondent and reliably get a response. For this reason, the definition of radicalization laid out in sociological literature which emphasizes two key features: (1) strong ideology and (2) action. This can be estimated as a rough composite of ANES feelings thermometer and survey questions about non-voting civic behavior, like protesting, discussion, and activism. 
+
+This construction is more inclusive than the traditional charicature of the Radical: it may include people who are very politically active and hold strong beliefs but are not "radical activists" in the traditional sense. However, under a notion of the "rising tide" of radicalism, such people would be a leading indicator of more radical members of the community.
+
+ESTIMATE RADICAL VARIABLE
+
+For strong ideology, the Feelings Thermometer and Political Attitude measures are centered on a [-3,3] scale from left to right and summary statistics are taken. The average determines ideological position aggregated across issues, and standard deviation of this measure indicates ideological coherence of these positions. Low standard deviation respondents would correspond to those with more coherent ideological structure.
+
+The second component of the radical variable is political action. The ANES contains questions with a variety of actions, from being registered to vote to wearing a button to attending meetings in-person. In this analyisis, I treat these as additive, where a voter has a score assigned based on the number of actions taken. A cutoff is necessary for classification of "radical" sentiment. 
+
+HISTOGRAM
+
+The benefit of the large, constructed variables employed here is increased variance in the population and something approaching a continuous variable.
+
+
+
+2. Theory of the paper (descriptive ggplots & simple models)
+  a. What is radicalism? Define in context of paper
+    i. Extreme feelings thermometer?
+    ii. Highly ideological & active voters? Those with many ACTION vars and SENTIMENT vars relative to population
+    iii. Determine reasonable cutoff for "radical" - ideologically extreme and active in politics as a rough heuristic
+3. Value-add (heavy ML models)
+  a. Classification Tree for interactions & variable importance
+  b. Step for margin calculation
+  c. Kitchen-sink PCA for predictive model?
+  d. Does it outperform a nicely specified OLS?
+4. Results
+  general radicalism
+5. Conclusions
+
 The theoretical basis of the model is that there are characteristics of people's demographic or exogenous experience which influence their relative radicalism in the political system. Political science and sociological literature explores material and social condition as a generator of political opinion.
 
 As highlighted in the literature from Piketty (1995) which shows general disposition is stable even over 
