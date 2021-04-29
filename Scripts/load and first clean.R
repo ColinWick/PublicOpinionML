@@ -90,7 +90,7 @@ srv_att <- srv %>%
   mutate(lib_con_selfplace = ifelse(lib_con_selfplace == 99,3.5,lib_con_selfplace))
 srv_att <- apply(MARGIN = c(1,2),FUN = refused_attitude,X = srv_att) %>% data.frame() 
 srv_att <- apply(MARGIN = c(1,2),FUN = survey_na_att,X = srv_att) %>% data.frame()
-srv_att
+
 
 
 n <- ncol(srv_att)
@@ -101,7 +101,6 @@ for(i in c(1:n)){
   srv_att[,i] <- FT_center(x = srv_att[,i],flip = flip_i,scale = scale_i)
 }
 
-srv_use <- merge(srv_use,srv_att,by=0,all.x=T) %>% select(-Row.names)
 
 ### This chunk was rooting out sources of huge numbers of "missing values" which mainly included house and senate opinion
 
@@ -113,9 +112,26 @@ srv_use <- merge(srv_use,srv_att,by=0,all.x=T) %>% select(-Row.names)
 
 #srv_att_c <- srv_att[complete.cases(srv_att),]
 
+srv_att$ideology_score <- srv_att %>%
+  rowSums() 
+srv_att$ideology_score_std <- srv_att %>%
+  rowSums() %>% scale
 
-# srv_attpcs = prcomp(srv_att_c, scale=TRUE, rank=7)
-# srv_attpcs 
+
+ggcorrplot::ggcorrplot(cor(srv_att,use = "pairwise.complete"))
+srv_att_c <- srv_att[complete.cases(srv_att),] 
+srv_attpcs = prcomp(srv_att_c, scale=TRUE, rank=7)
+summary(srv_attpcs)
+
+loadings_summary = srv_attpcs$rotation %>%
+  as.data.frame() %>%
+  rownames_to_column('Question')
+
+loadings_summary %>%
+  select(Question, PC1) %>%
+  arrange(desc(PC1))
+
+srv_use <- merge(srv_use,srv_att,by=0,all.x=T) %>% select(-Row.names)
 
 ##########################
 #
@@ -123,3 +139,66 @@ srv_use <- merge(srv_use,srv_att,by=0,all.x=T) %>% select(-Row.names)
 #
 ##########################
 
+actionvar <- varlist %>%
+  filter(type == "ACTION")
+
+srv_action <- srv %>%
+  select(actionvar$name) %>% 
+  mutate(
+    vote_2012 = ifelse(vote_2012 == 1,1,0),
+    registered_vote = ifelse(registered_vote %in% c(1,2),1,0),
+    party_reg = ifelse(party_reg %in% c(1,2,5),1,0),
+    vote_in_primary = ifelse(vote_in_primary == 1,1,0),
+    justify_use_violence = ifelse(justify_use_violence == 1,0,1),
+    justify_violence_str = ifelse(justify_use_violence > 3,1,0),
+    attend_rally = ifelse(attend_rally == 1,1,0),
+    wear_button = ifelse(wear_button == 1,1,0),
+    work_party = ifelse(work_party == 1,1,0),
+    give_money_campaign = ifelse(give_money_campaign == 1,1,0),
+    give_money_party = ifelse(give_money_party == 1,1,0),
+    protested = ifelse(protested == 1,1,0),
+    signed_petition = ifelse(signed_petition == 1,1,0),
+    money_to_religious = ifelse(money_to_religious == 1,1,0),
+    money_to_pol_org = ifelse(money_to_pol_org==1,1,0),
+    dislike_supremecourt = ifelse(FT_SupremeCourt < 30,1,0),
+    boycott_political = ifelse(boycott_political == 1,1,0),
+    community_work = ifelse(community_work == 1,1,0),
+    attend_meeting_community = ifelse(attend_meeting_community == 1,1,0),
+    volunteer_work = ifelse(volunteer_work == 1,1,0),
+    contacted_fed_EO = ifelse(contacted_fed_EO == 1,1,0),
+    contacted_local_EO = ifelse(contacted_local_EO == 1,1,0),
+    frequently_discuss = round(scale(ifelse(days_last_week_discuss > 0,days_last_week_discuss,0)),3)+1,
+    num_orgs_member = ifelse(num_orgs_member %in% c(20:100),20,num_orgs_member),
+    num_orgs_member = round(scale(ifelse(num_orgs_member < 0,0,num_orgs_member),1),3)+1) %>%
+  select(-FT_SupremeCourt,-days_last_week_discuss)
+
+srv_action$action_score <- srv_action %>%
+  rowSums() 
+
+srv_use <-  merge(srv_use,srv_action,by=0,all.x=T) %>% select(-Row.names)
+
+###########
+#
+# Import and clean INPUT 
+#
+###########
+
+inputvar <- varlist %>%
+  filter(type == "INPUT")
+
+srv %>%
+  select(inputvar$name) %>% 
+  mutate(days_media_consumption = scale(ifelse(days_media_consumption > -1,days_media_consumption,0)),
+         senate_race = ifelse(senate_race == 1,1,0),
+         gov_race = ifelse(gov_race == 1,1,0),
+         health_ins = ifelse(health_ins == 1,1,0),
+         goodhealth = ifelse(health > 2,1,0),
+         jewish = ifelse(voter_religion == 6,1,0),
+         catholic = ifelse(voter_religion == 4,1,0),
+         protestant = ifelse(voter_religion %in% c(1,2,3,5),1,0),
+         evangelical = ifelse(voter_religion == 2,1,0),
+         atheist = ifelse(voter_atheist == 1,1,0),
+         spiritual = ifelse(voter_spiritual_not_religious == 1,1,0),
+         working = ifelse()
+         ) %>% select(-health,-voter_religion,-voter_atheist,-voter_spiritual_not_religious,-voter_evangelical)
+  names()
