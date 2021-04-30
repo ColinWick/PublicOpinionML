@@ -3,25 +3,40 @@ library(survey)
 library(randomForest)
 library(splines)
 library(pdp)
+library(mice)
+
+source("Scripts/Feeling Themometer Centering.R")
 
 
-srv <- haven::read_dta("Data/2016panel/anes_timeseries_2016.dta") 
+srv <- haven::read_dta("Data/19482019timeseries/anes_timeseries_cdf.dta") 
 
-varlist <- read.csv("Data/2016panel/varlist.csv") %>%
-  filter(use == "X")
+#srv <- srv %>% filter(VCF0004 == 2016 & VCF0014 == 1 & VCF0013==1)
+#data.frame(colSums(is.na(srv))) %>% 
+#  mutate(var = rownames(data.frame(colSums(is.na(srv))))) %>% 
+#  rename("count"=1) %>% arrange(count)
+
+varlist <- read.csv("Data/19482019timeseries/varlist_all.csv") %>%
+  filter(use == "X") 
 
 srv <- srv %>%
-  select(varlist$var) %>%
-  filter(!(V162370 %in% c(-5,-6)))
+  select(varlist$var) #%>%
 
 names(srv) <- varlist$name
 
 srv <- srv %>%
-  column_to_rownames("respondent_id")
+  filter(year %in% seq(2000,2016,4)) %>%
+  filter(complete_pre == 1) %>%
+  mutate(FT_Feminists == ifelse(!is.na(FT_Feminists),FT_Feminists,FT_Womens_Libbers)) %>%
+  select(-FT_Womens_Libbers)
+
+data.frame(colSums(is.na(srv))) %>% rename("count"=1) %>% arrange(count)
+
 
 srv_use <- srv %>%
   select()
-  
+
+srv_yearonly <- srv %>%
+  select(year)
 
 ##################
 #
@@ -33,24 +48,30 @@ demovar <- varlist %>%
   filter(type == "DEMO")
 
 srv_use <- srv %>%
-  select(demovar$name)%>%
+  select(demovar$name) %>%
   apply(FUN = survey_na,MARGIN = c(1,2)) %>% data.frame() %>%
-  mutate(STATE_FIPS = factor(STATE_FIPS),
+  mutate(STATEFIPS = factor(STATEFIPS),
          age = as.numeric(age),
-         college = case_when(educ > 9 ~ 1,
-                             educ %in% c(0:9) ~ 0,
-                             TRUE ~ NA_real_),
-         veteran = factor(veteran),
+         college = case_when(educ %in% c(5,6) ~ 1,
+                             educ %in% c(1:4) ~ 0,
+                             TRUE ~ 0),
          black = ifelse(race == 2,1,0),
          white = ifelse(race == 1,1,0),
          asian = ifelse(race == 3,1,0),
          hisp = ifelse(race == 5 | hisp == 1,1,0),
          married = ifelse(married == 1,1,0),
          female = ifelse(gender == 2,1,0),
-         inc_lt_50k = ifelse(income < 15,1,0),
-         inc_gt_125k = ifelse(income >= 25,1,0),
-         lgbt = ifelse(sexual_orientation %in% c(2,3),1,0)) %>%
-  select(-income,-sexual_orientation,-race,-gender) %>%
+         inc_firstthird = ifelse(income <= 2,1,0),
+         inc_upperthird= ifelse(income >= 4,1,0),
+         lgbt = ifelse(sexual_orientation %in% c(2,3),1,0),
+         lowerclass = ifelse(class %in% c(0,1,2,3),1,0),
+         middleclass = ifelse(class %in% c(4,5,6),1,0),
+         own_home = ifelse(own_home == 1,1,0),
+         jewish = ifelse(religion == 3,1,0),
+         catholic = ifelse(religion == 2,1,0),
+         protestant = ifelse(religion == 1,1,0),
+         nonreligious = ifelse(religion == 4,1,0)) %>%
+  select(-income,-sexual_orientation,-race,-gender,-religion,-educ,-class) %>%
   merge(srv_use,by=0,all.y=T) %>% select(-Row.names)
 
 ##################
@@ -62,45 +83,20 @@ srv_use <- srv %>%
 attvar <- varlist %>%
   filter(type == "ATTITUDE")
 
-source("Scripts/Feeling Themometer Centering.R")
-
-srv_use <- srv %>%
-  select(attvar$name) %>%
-  apply(FUN = survey_na,MARGIN = c(1,2)) %>% data.frame() %>%
-  mutate(vote_2012_choice = case_when(vote_2012_choice == 1 ~ -1,
-                                      vote_2012_choice == 2 ~ 1,
-                                      TRUE ~ 0),
-         candidate_primary = case_when(candidate_primary == 1 ~ -1,
-                                       candidate_primary == 2 ~ -2,
-                                       candidate_primary == 3 ~ -1,
-                                       candidate_primary %in% c(6:8) ~ 1,
-                                       candidate_primary %in% c(4,5) ~ 2,
-                                       TRUE ~ 0),
-         which_campaign_money = case_when(which_campaign_money == 1 ~ -1,
-                                          which_campaign_money == 2 ~ 1,
-                                          TRUE ~ 0),
-         which_party_money = case_when(which_party_money == 1 ~ -1,
-                                          which_party_money == 2 ~ 1,
-                                          TRUE ~ 0)) %>%
-  select(vote_2012_choice,candidate_primary,which_campaign_money,which_party_money) %>%
-  merge(srv_use,by=0,all.y=T) %>% select(-Row.names)
-
 srv_att <- srv %>%
-  select(attvar$name[!is.na(attvar$scale)],-FT_gunaccess) %>%
-  mutate(lib_con_selfplace = ifelse(lib_con_selfplace == 99,3.5,lib_con_selfplace))
-srv_att <- apply(MARGIN = c(1,2),FUN = refused_attitude,X = srv_att) %>% data.frame() 
-srv_att <- apply(MARGIN = c(1,2),FUN = survey_na_att,X = srv_att) %>% data.frame()
+  select(attvar$name[!is.na(attvar$scale)]) %>% data.frame()
 
-
+#srv_att <- apply(MARGIN = c(1,2),FUN = refused_attitude,X = srv_att) %>% data.frame() 
+#srv_att <- apply(MARGIN = c(1,2),FUN = survey_na_att,X = srv_att) %>% data.frame()
 
 n <- ncol(srv_att)
+
 for(i in c(1:n)){
   flip_i = attvar$flip[i]
   scale_i = attvar$scale[i]
-  srv_att[,i] <- DK_neutral(x = srv_att[,i],flip = flip_i,scale = scale_i)
-  srv_att[,i] <- FT_center(x = srv_att[,i],flip = flip_i,scale = scale_i)
+  #srv_att[,i] <- DK_neutral(x = srv_att[,i],flip = flip_i,scale = scale_i)
+  srv_att[,i] <- scale(FT_center(x = srv_att[,i],flip = flip_i,scale = scale_i))
 }
-
 
 ### This chunk was rooting out sources of huge numbers of "missing values" which mainly included house and senate opinion
 
@@ -112,24 +108,27 @@ for(i in c(1:n)){
 
 #srv_att_c <- srv_att[complete.cases(srv_att),]
 
-srv_att$ideology_score <- srv_att %>%
-  rowSums() 
-srv_att$ideology_score_std <- srv_att %>%
-  rowSums() %>% scale
+srv_att <- srv_att %>%
+  merge(srv_yearonly,by=0,all.x = T) %>% select(-Row.names)
 
+        
+        srv_att_c <- srv_att[srv_att$year==2016,]
+        srv_att_c <- srv_att_c[,colSums(is.na(srv_att_c))<nrow(srv_att_c)]
+        srv_att_c <- srv_att_c[complete.cases(srv_att_c),] %>% select(-year)
+        srv_att
+        srv_attpcs = prcomp(srv_att_c, scale=TRUE,rank. = 4)
+        summary(srv_attpcs)
+        
+        loadings_summary = srv_attpcs$rotation %>%
+          as.data.frame() %>%
+          rownames_to_column('Question')
+        
+        loadings_summary %>%
+          select(Question, PC2) %>%
+          arrange(desc(PC2))
 
-ggcorrplot::ggcorrplot(cor(srv_att,use = "pairwise.complete"))
-srv_att_c <- srv_att[complete.cases(srv_att),] 
-srv_attpcs = prcomp(srv_att_c, scale=TRUE, rank=7)
-summary(srv_attpcs)
-
-loadings_summary = srv_attpcs$rotation %>%
-  as.data.frame() %>%
-  rownames_to_column('Question')
-
-loadings_summary %>%
-  select(Question, PC1) %>%
-  arrange(desc(PC1))
+srv_att$att_score <- srv_att %>% rowSums(na.rm=T) 
+srv_att$att_score_std <- srv_att %>% rowSums(na.rm=T) %>% scale()
 
 srv_use <- merge(srv_use,srv_att,by=0,all.x=T) %>% select(-Row.names)
 
@@ -142,40 +141,23 @@ srv_use <- merge(srv_use,srv_att,by=0,all.x=T) %>% select(-Row.names)
 actionvar <- varlist %>%
   filter(type == "ACTION")
 
-srv_action <- srv %>%
-  select(actionvar$name) %>% 
-  mutate(
-    vote_2012 = ifelse(vote_2012 == 1,1,0),
-    registered_vote = ifelse(registered_vote %in% c(1,2),1,0),
-    party_reg = ifelse(party_reg %in% c(1,2,5),1,0),
-    vote_in_primary = ifelse(vote_in_primary == 1,1,0),
-    justify_use_violence = ifelse(justify_use_violence == 1,0,1),
-    justify_violence_str = ifelse(justify_use_violence > 3,1,0),
+actionvar$name[!is.na(actionvar$scale)]
+
+srv_use <- srv %>%
+  select(actionvar$name[is.na(actionvar$scale)]) %>% 
+   mutate(
+    tried_influence = ifelse(tried_influence == 1,1,0),
     attend_rally = ifelse(attend_rally == 1,1,0),
     wear_button = ifelse(wear_button == 1,1,0),
     work_party = ifelse(work_party == 1,1,0),
     give_money_campaign = ifelse(give_money_campaign == 1,1,0),
     give_money_party = ifelse(give_money_party == 1,1,0),
-    protested = ifelse(protested == 1,1,0),
-    signed_petition = ifelse(signed_petition == 1,1,0),
-    money_to_religious = ifelse(money_to_religious == 1,1,0),
-    money_to_pol_org = ifelse(money_to_pol_org==1,1,0),
-    dislike_supremecourt = ifelse(FT_SupremeCourt < 30,1,0),
-    boycott_political = ifelse(boycott_political == 1,1,0),
-    community_work = ifelse(community_work == 1,1,0),
-    attend_meeting_community = ifelse(attend_meeting_community == 1,1,0),
-    volunteer_work = ifelse(volunteer_work == 1,1,0),
-    contacted_fed_EO = ifelse(contacted_fed_EO == 1,1,0),
-    contacted_local_EO = ifelse(contacted_local_EO == 1,1,0),
-    frequently_discuss = round(scale(ifelse(days_last_week_discuss > 0,days_last_week_discuss,0)),3)+1,
-    num_orgs_member = ifelse(num_orgs_member %in% c(20:100),20,num_orgs_member),
-    num_orgs_member = round(scale(ifelse(num_orgs_member < 0,0,num_orgs_member),1),3)+1) %>%
-  select(-FT_SupremeCourt,-days_last_week_discuss)
-
-srv_action$action_score <- srv_action %>%
-  rowSums() 
-
-srv_use <-  merge(srv_use,srv_action,by=0,all.x=T) %>% select(-Row.names)
+    campaign_participation = as.numeric(campaign_participation),
+    community_meeting = ifelse(community_meeting==1,1,0),
+    community_work = ifelse(community_work==1,1,0),
+    days_last_week_discuss = as.numeric(days_last_week_discuss)) %>% 
+   select(-days_last_week_discuss) %>% 
+   data.frame() %>% merge(srv_use,by=0,all.y=T) %>% select(-Row.names)
 
 ###########
 #
@@ -186,19 +168,83 @@ srv_use <-  merge(srv_use,srv_action,by=0,all.x=T) %>% select(-Row.names)
 inputvar <- varlist %>%
   filter(type == "INPUT")
 
-srv %>%
-  select(inputvar$name) %>% 
-  mutate(days_media_consumption = scale(ifelse(days_media_consumption > -1,days_media_consumption,0)),
-         senate_race = ifelse(senate_race == 1,1,0),
-         gov_race = ifelse(gov_race == 1,1,0),
+srv_use <- srv %>% select(inputvar$name) %>% data.frame() %>%
+  mutate(media_TV = ifelse(media_TV == 1,1,0),
+         media_radio = ifelse(media_radio == 1,1,0),
+         media_paper = ifelse(media_paper == 1,1,0),
+         media_internet = ifelse(media_internet == 1,1,0),
+         access_internet = ifelse(access_internet == 1,1,0),
+         religion_important = ifelse(religion_important == 1,1,0),
+         delay_medical_cost = ifelse(delay_medical_cost == 1,1,0),
+         better_off_econ1 = ifelse(better_off_econ1 %in% c(8,9),3,better_off_econ1),
+         better_off_ny_econ = ifelse(better_off_ny_econ %in% c(8,9),3,better_off_ny_econ),
+         churchgoer = ifelse(church_attendance %in% c(1:3),1,0),
+         born_again = ifelse(born_again == 1,1,0),
          health_ins = ifelse(health_ins == 1,1,0),
-         goodhealth = ifelse(health > 2,1,0),
-         jewish = ifelse(voter_religion == 6,1,0),
-         catholic = ifelse(voter_religion == 4,1,0),
-         protestant = ifelse(voter_religion %in% c(1,2,3,5),1,0),
-         evangelical = ifelse(voter_religion == 2,1,0),
-         atheist = ifelse(voter_atheist == 1,1,0),
-         spiritual = ifelse(voter_spiritual_not_religious == 1,1,0),
-         working = ifelse()
-         ) %>% select(-health,-voter_religion,-voter_atheist,-voter_spiritual_not_religious,-voter_evangelical)
-  names()
+         money_stocks = ifelse(money_stocks == 1,1,0)) %>% select(-church_attendance) %>%
+  merge(srv_use,by=0,all.y=T) %>% select(-Row.names)
+
+
+###########
+#
+# Import and clean Politicization 
+#
+###########
+
+polvar <- varlist %>%
+  filter(type == "POL")
+
+polvar$name
+srv_use <- srv %>% select(polvar$name) %>% data.frame() %>%
+  mutate(
+  class_conscious = ifelse(class_conscious %in% c(1,3),1,0),
+  approve_fedgov = scale(approve_fedgov),
+  how_much_campaign = ifelse(how_much_campaign == 9,0,how_much_campaign),
+  interest_public_affairs = ifelse(interest_public_affairs==9,0,interest_public_affairs),
+  politics_complicated = case_when(politics_complicated == 1~1,
+                                   politics_complicated == 2~-1,
+                                   TRUE ~ 0),
+  trust_media = ifelse(trust_media < 3,1,0),
+  contacted_by_party = ifelse(contacted_by_party == 1,1,0),
+  contacted_by_other_nonparty = ifelse(contacted_by_other_nonparty == 1,1,0),
+  satisfied_democracy = ifelse(satisfied_democracy %in% c(1,2),1,0),
+  how_often_pay_attention = factor(how_often_pay_attention)) %>% 
+  merge(srv_use,by=0,all.y=T) %>% select(-Row.names)
+
+###########
+#
+# Import and clean Politicization 
+#
+###########
+
+ideovar <- varlist %>%
+  filter(type == "IDEO") %>%
+  filter(name != "FT_Womens_Libbers")
+
+srv_ideo <- srv %>%
+  select(ideovar$name[!is.na(ideovar$scale)]) %>% data.frame()
+
+
+n <- ncol(srv_ideo)
+
+for(i in c(1:n)){
+  flip_i = ideovar$flip[i]
+  scale_i = ideovar$scale[i]
+  #srv_ideo[,i] <- DK_neutral(x = srv_ideo[,i],flip = flip_i,scale = scale_i)
+  srv_ideo[,i] <- FT_center(x = srv_ideo[,i],flip = flip_i,scale = scale_i)
+}
+
+srv_ideo <- srv_ideo %>%
+  merge(srv_yearonly,by=0,all.x = T) %>% select(-Row.names)
+
+srv_ideo$ideo_score <- apply(FUN = scale,MARGIN = 2,X = srv_ideo) %>% data.frame() %>% select(-year) %>% rowSums(na.rm=T)
+
+srv_ideo$ideo_score_std <- apply(FUN = scale,MARGIN = 2,X = srv_ideo) %>% data.frame() %>% select(-year) %>% rowSums(na.rm=T) %>% scale()
+
+srv_ideo %>% 
+ggplot()+
+ggridges::geom_density_ridges(aes(x=ideo_score,group=year,y=year))+
+  ggtitle("Relative ideological consistency of the electorate","composite variable, by year")
+
+rm(list = ls()[!ls() == "srv_use"])
+srv_use <- merge(srv_use,srv_ideo,by=0,all.x=T) %>% select(-Row.names)
