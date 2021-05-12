@@ -5,9 +5,9 @@ FT_center <- function(x,flip,scale){
     x <- ifelse(x > scale,v,x)
     # Then centering all values
     if(flip == T){
-      x <- -1*(x-v)
+      x <- -1*(x-v)/v
     } else {
-      x <- x-v
+      x <- (x-v)/v
     }
     
   } else {
@@ -15,9 +15,9 @@ FT_center <- function(x,flip,scale){
     x <- ifelse(x > scale,v+.5,x)
     # Then centering all values
     if(flip == T){
-      x <- -1*ifelse(x-v > 0,x-v,(x-v-1))
+      x <- -1*ifelse(x-v > 0,x-v,(x-v-1))/v
     } else {
-      x <- ifelse(x-v > 0,x-v,(x-v-1))
+      x <- ifelse(x-v > 0,x-v,(x-v-1))/v
     }
   }
   return(x)
@@ -55,4 +55,7 @@ survey_na_att <- function(x){
   }
 }
 
+sd_na <-  function(x) {
+  sd(x,na.rm = T)
+}
 
