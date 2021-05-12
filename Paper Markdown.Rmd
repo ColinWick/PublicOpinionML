@@ -7,7 +7,7 @@ always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE,message = FALSE,warning=FALSE,cache=T,fig.align = "center")
+knitr::opts_chunk$set(echo = FALSE,message = FALSE,warning=FALSE,fig.align = "center")
 library(tidyverse)
 library(scales)
 library(igraph)
@@ -22,10 +22,17 @@ library(kableExtra)
 library(modelr)
 library(plm)
 
-source("Scripts/load and first clean.R")
-```
+srv_ideo <- read.csv("Data/DataTurn/srv_ideo.csv")
+srv_use <- read.csv("Data/DataTurn/srv_use.csv")
 
-#### Introduction 
+# For reproduction from scratch using ANES data
+#source("Scripts/load and first clean.R")
+```
+### Abstract
+
+In the political science and public opinion literature, the standard OLS method for estimating and predicting effects is in conflict with the highly interconnected nature of identity and ideology. In this paper I attempt two methods for incorporating these methods; regression tree and step regression. Though the success of these methods are small, they each yield results not picked up by OLS. Both have increased predictive power over OLS and yield variable combinations which could not have been constructed a priori.
+
+### Introduction
 
 Identity and political ideology are usually examined in a linear and additive analytic structure. In polling, crosstabs are broken out by age, race, and education as discrete variables for example. In Napier & Jost (2009), a model is put together which stratifies outcome variables based on a matrix of correlations between qualities, which accounts for the significant heterogeneity and interaction between identity variables.
 
@@ -43,7 +50,21 @@ The general setup of the model will operate using a few rough cuts for simplicit
 
 The theoretical basis of the model is that there are characteristics of people's demographic or exogenous experience which influence their relative radicalism in the political system. Political science and sociological literature explores material and social condition as a generator of political opinion.
 
-#### Ideological Variable Construction
+\newpage
+
+### Methods
+
+#### Data
+
+The ANES is a gold-standard representative sample of the American electorate, but it faces limitations for the scope of this study. Namely, measuring actual *radical* sentiment must be inferred based on self-reported actions and attitudes, meaning some voters will be included or excluded from the classification based on the scope of questions which may not capture their underlying attitude. 
+
+The ANES contains about 1800 variables, so a pruning and variable classification process has to take place before any analysis can even be done. Ultimately, there is a degree to which variable selection is *arbitrary*. Working with public opinion data requires a degree of judgement with respect to variable selection and engineering. The ANES contains 1800 variables which overlap on some matters and contain redundancies. Such a large pool of variables makes variable construction a combinatorically unfeasable.
+
+The data featured a significant number of *NA*s of varying random distribution. This limited both the time-series element and inter-year avenues for analysis. The most glaring issue along these lines was the changes ANES makes after every survey wave, especially in the past 20 years, which render large groups of variables unusable for regression analysis. 
+
+Similarly, within-year "Refuse" or "Inappropriate" responses make an entire observation unusable in a regression. Variables which feature a significant number of "Inappropriate" were thrown out. This affected both the ideology variable construction but also the number of "demographic" or pseudo-demographic variables available for these models. 
+
+#### Theory and Variable Construction
 
 Ideology itself is a slippery measurement, since political scientists and pollsters cannot simply ask "Are you ideological?" to a respondent and reliably get a usable response. An alternative is to estimate a a rough composite of ANES feelings thermometer and survey questions about non-voting civic behavior, like protesting, discussion, and activism. Variables explicitly addressing attitudes for particular candidates and positions were omitted. Instead, this study focused on questions within general public opinion at the time and voter characteristics.
 
@@ -98,15 +119,22 @@ A key issue in this dataset, and with data scientific methods in general, is ren
 
 Rather, this study focuses on unearthing potentially valuable interaction terms. 
 
-#### Data Limitations
+#### Models
 
-The ANES is a gold-standard representative sample of the American electorate, but it faces limitations for the scope of this study. Namely, measuring actual *radical* sentiment must be inferred based on self-reported actions and attitudes, meaning some voters will be included or excluded from the classification based on the scope of questions which may not capture their underlying attitude. 
+This study uses three model types to predict ideology from demographic characteristics at different levels of simplicity to demonstrate the effectiveness of machine learning models in dealing with public opinion study. 
 
-The ANES contains about 1800 variables, so a pruning and variable classification process has to take place before any analysis can even be done. Ultimately, there is a degree to which variable selection is *arbitrary*. Working with public opinion data requires a degree of judgement with respect to variable selection and engineering. The ANES contains 1800 variables which overlap on some matters and contain redundancies. Such a large pool of variables makes variable construction a combinatorically unfeasable.
+1. OLS - the gold-standard method for generating academically useable results. This method generates clean estimates of coefficients but lacks the hierarchical and highly-interacted structure characteristic of ideology formation as highlighted in the literature.
 
-The data featured a significant number of *NA*s of varying random distribution. This limited both the time-series element and inter-year avenues for analysis. The most glaring issue along these lines was the changes ANES makes after every survey wave, especially in the past 20 years, which render large groups of variables unusable for regression analysis. 
 
-Similarly, within-year "Refuse" or "Inappropriate" responses make an entire observation unusable in a regression. Variables which feature a significant number of "Inappropriate" were thrown out. This affected both the ideology variable construction but also the number of "demographic" or pseudo-demographic variables available for these models. 
+2. Regression Trees - Inherently accommodate hierarchy and interactions, but lack clear coefficients and statistical validation measures. 
+
+3. Step regressions - Can incorporate interactions like the tree regression, but are suceptible to misspecification of models. 
+
+\newpage
+
+### Results
+
+#### OLS
 
 ```{r blanket-formulas}
 position_formula <- formula(Position ~ age + agesq + hisp+ own_home+ married+ class_conscious+ discuss+ money_stocks +college +black+ female+ protestant + catholic + inc_firstthird +inc_upperthird +lgbt +middleclass +knowl + trust_others + Consistency + satisfied_life + understand_issues + too_complicated + tried_influence+ Action_Score+ STATEFIPS+census_region + year + str_PARTY+ PARTY_ID)
@@ -136,7 +164,7 @@ As a baseline for model effectiveness, I run a standard linear regression on the
 
 ```{r}
 stargazer(reg1,reg2,reg3, title="Regression Results",
-align=TRUE, dep.var.labels=c("Position","Extremity","Consistency"),summary.stat = c("n"),type = "html",single.row = T,no.space = T,omit = c("STATE"),summary = T)
+align=TRUE, dep.var.labels=c("Position","Extremity","Consistency"),summary.stat = c("n"),type = "text",single.row = T,no.space = T,omit = c("STATE"),summary = T) 
 ```
 
 These models are technically useable (significant F-statistic), they suffer from extremely low $R^2$ values. Though this model is barely useful, key trends and common knowledge are already visible, providing plenty of room for improvement by incorporating machine learning techniques.
@@ -214,35 +242,11 @@ reg1_step <- step(reg1,scope = ~ (age + agesq + hisp+ own_home+ married+ class_c
 reg2_step <- step(reg2,scope = ~ (age + agesq + hisp+ own_home+ married+ class_conscious+ discuss+ money_stocks +college +black+ female+ protestant + catholic + inc_firstthird +inc_upperthird +lgbt +middleclass +knowl)^2+.,direction = "both",trace = -10000,steps = 30)
 
 reg3_step <- step(reg3,scope = ~ (age + agesq + hisp+ own_home+ married+ class_conscious+ discuss+ money_stocks +college +black+ female+ protestant + catholic + inc_firstthird +inc_upperthird +lgbt +middleclass +knowl)^2+.,direction = "both",trace = -10000,steps = 30)
-```
 
-```{r demonstrating-better-position}
-srv_pos_test <- data.frame(srv_use$Position,reg1$fitted.values,predict(position_rpart),reg1_step$fitted.values)
-names(srv_pos_test) <- c("Actual","Linear_Regression","Regression_Tree","Step_Regression")
-srv_pos_test %>% rownames_to_column("Index") %>%
-ggplot()+
-  geom_point(aes(x=Actual,y=Regression_Tree,color="Tree"),alpha=.025)+
-  geom_point(aes(x=Actual,y=Linear_Regression,color="OLS"),alpha=.025)+
-  geom_point(aes(x=Actual,y=Step_Regression,color="Step"),alpha=.025)+
-  geom_smooth(aes(x=Actual,y=Regression_Tree,color="Tree"),method = "lm",se=F)+
-  geom_smooth(aes(x=Actual,y=Linear_Regression,color="OLS"),method="lm",se = F)+
-  geom_smooth(aes(x=Actual,y=Step_Regression,color="Step"),method="lm",se = F)+
-  geom_abline()+
-  ylab("Predicted")+xlab("Actual")+
-  ggtitle("Predicted Position Values by three methods","OLS, Step, Tree, and 45-degree line")+
-  theme(plot.background = element_rect(colour = "black", fill=NA, size=1))
-```
-
-```{r rsq-table}
 sum_st_r1 <- summary(reg1_step)
 sum_st_r2 <- summary(reg2_step)
 sum_st_r3 <- summary(reg3_step)
-rsq[3,] <- c(sum_st_r1$r.squared,sum_st_r2$r.squared,sum_st_r3$r.squared)
-rsq %>% kbl() %>% kable_minimal()
-rsq
 ```
-
-The step regression splits the difference between the tree model and the OLS model in terms of predictability and is less of a "black box" for interpreting outcomes. The downside is reporting coefficients, since it generates potentially hundreds of interaction terms. For reporting, I omit all non-significant variables below the .01 level.
 
 ```{r fig.height=7,fig.width=6}
 st_reg1_sum <- data.frame(sum_st_r1$coefficients) %>% filter(`Pr...t..` <= .01) %>% select(Estimate,Std..Error,`Pr...t..`) %>% mutate(model = "Position")
@@ -265,13 +269,41 @@ rbind(st_reg1_sum,st_reg2_sum,st_reg3_sum) %>%
   theme(plot.background = element_rect(colour = "black", fill=NA, size=1))
 ```
 
+The step regression splits the difference between the tree model and the OLS model in terms of predictability and is less of a "black box" for interpreting outcomes. The downside is reporting coefficients, since it generates potentially hundreds of interaction terms. For reporting, I omit all non-significant variables below the .01 level.
+
 Introducing an algorithmically-selected set of interactions yields both a better model fit and new insight into ideological position. In some cases, the initial significance of a variable disappeared when interacted with one of the others, like hispanic identity in all three models. 
 
 Due to resource constraints, only one degree of interaction was available (i.e. all variables only interacted once). The step regression method could be applied to n-degrees with enough computing power and observations to make the model valid.
 
-Finally, comparing $R^2$ across each of these models, we see the step regression essentially splits the difference in terms of model fit. The trade-off is strict econometric rigor at the benefit of uncovering identity interactions driving ideological position and structure in the electorate. 
+```{r demonstrating-better-position}
+srv_pos_test <- data.frame(srv_use$Position,reg1$fitted.values,predict(position_rpart),reg1_step$fitted.values)
+names(srv_pos_test) <- c("Actual","Linear_Regression","Regression_Tree","Step_Regression")
+srv_pos_test %>% rownames_to_column("Index") %>%
+ggplot()+
+  geom_point(aes(x=Actual,y=Regression_Tree,color="Tree"),alpha=.025)+
+  geom_point(aes(x=Actual,y=Linear_Regression,color="OLS"),alpha=.025)+
+  geom_point(aes(x=Actual,y=Step_Regression,color="Step"),alpha=.025)+
+  geom_smooth(aes(x=Actual,y=Regression_Tree,color="Tree"),method = "lm",se=F)+
+  geom_smooth(aes(x=Actual,y=Linear_Regression,color="OLS"),method="lm",se = F)+
+  geom_smooth(aes(x=Actual,y=Step_Regression,color="Step"),method="lm",se = F)+
+  geom_abline()+
+  ylab("Predicted")+xlab("Actual")+
+  ggtitle("Predicted Position Values by three methods","OLS, Step, Tree, and 45-degree line")+
+  theme(plot.background = element_rect(colour = "black", fill=NA, size=1))
+```
 
-#### Discussion
+```{r}
+rsq[3,] <- c(sum_st_r1$r.squared,sum_st_r2$r.squared,sum_st_r3$r.squared)
+rsq %>% kbl(caption = "R-Squared Values for each regression", table.attr = "style='width:30%;'") %>% kable_minimal()
+```
+
+Finally, comparing $R^2$ across each of these models, we see the step regression does strictly better than OLS, which is expected due to the nature of adding terms to a regression. Interestingly, it also outperforms the tree models in the case of the "consistency" variable. This implies the hierarchical structure of a tree model may actually be less explanatory than the additive linear structure of a regression.
+
+The step model slightly outperforms OLS to a degree where the actual "fit" of the model may not be much better. However, from the step regression coefficients model, we see the process of algorithmically selecting interaciton terms isolated effects not immediately present in the first OLS model. Looking at the Extremity variable, the class and income position affected the predited Extremity of those who often discuss politics, for example.  
+
+\newpage
+
+### Conclusion
 
 This paper shows that ideology is deeply related not only to macro-identites like race, age, and religion, but interactions between those identities into more specific configurations has a real effect on ideological position, extremeness, and consistency. I also present a configuration of ideological structure which relies on current literautre but provides a basis for deeper analysis. By analyzing ideological consistency and position in this manner, direct estimates of position can be estimated against shocks. 
 
