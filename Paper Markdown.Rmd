@@ -22,12 +22,13 @@ library(kableExtra)
 library(modelr)
 library(plm)
 
-srv_ideo <- read.csv("DataTurn/srv_ideo.csv")
-srv_use <- read.csv("DataTurn/srv_use.csv")
+srv_ideo <- read.csv("Data/DataTurn/srv_ideo.csv")
+srv_use <- read.csv("Data/DataTurn/srv_use.csv")
 
 # For reproduction from scratch using ANES data
 #source("Scripts/load and first clean.R")
 ```
+
 ### Abstract
 
 In the political science and public opinion literature, the standard OLS method for estimating and predicting effects is in conflict with the highly interconnected nature of identity and ideology. In this paper I attempt two methods for incorporating these methods; regression tree and step regression. Though the success of these methods are small, they each yield results not picked up by OLS. Both have increased predictive power over OLS and yield variable combinations which could not have been constructed a priori.
