@@ -22,8 +22,8 @@ library(kableExtra)
 library(modelr)
 library(plm)
 
-srv_ideo <- read.csv("DataTurn/srv_ideo.csv")
-srv_use <- read.csv("DataTurn/srv_use.csv")
+srv_ideo <- read.csv("Data/DataTurn/srv_ideo.csv")
+srv_use <- read.csv("Data/DataTurn/srv_use.csv")
 
 # For reproduction from scratch using ANES data
 #source("Scripts/load and first clean.R")
